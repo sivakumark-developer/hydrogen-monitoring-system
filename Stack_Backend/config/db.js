@@ -2,7 +2,11 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    await mongoose.connect("mongodb://localhost:27017/hydrogen_monitoring");
+    const mongoURI =
+      process.env.MONGO_URI ||
+      "mongodb://localhost:27017/hydrogen_monitoring";
+
+    await mongoose.connect(mongoURI);
 
     console.log("MongoDB Connected Successfully");
   } catch (error) {

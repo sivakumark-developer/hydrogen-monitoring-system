@@ -1,3 +1,4 @@
+import React from "react";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import {
@@ -10,13 +11,21 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import Electrolyzers from "./Electrolyzers/Electrolyzers";
+import Analytics from "./Analytics/Analytics";
+import PlantData from "./PlantData/PlantData";
+import Reports from "./Reports/Reports";
+
 function App() {
-  const [period, setPeriod] = useState("Today");
+  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [period, setPeriod] = useState("All Records");
   const [lastUpdated, setLastUpdated] = useState(
     new Date().toLocaleTimeString()
   );
 
   const [plantData, setPlantData] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -44,6 +53,14 @@ function App() {
 
   // Filter history according to selected period
   const getFilteredHistoryData = () => {
+    if (!Array.isArray(historyData)) {
+      return [];
+    }
+
+    if (period === "All Records") {
+      return historyData;
+    }
+
     const now = new Date();
 
     if (period === "Today") {
@@ -51,9 +68,8 @@ function App() {
         const recordDate = new Date(item.createdAt);
 
         return (
-          recordDate.getFullYear() === now.getFullYear() &&
-          recordDate.getMonth() === now.getMonth() &&
-          recordDate.getDate() === now.getDate()
+          !isNaN(recordDate.getTime()) &&
+          recordDate.toDateString() === now.toDateString()
         );
       });
     }
@@ -66,7 +82,11 @@ function App() {
       return historyData.filter((item) => {
         const recordDate = new Date(item.createdAt);
 
-        return recordDate >= last24Hours && recordDate <= now;
+        return (
+          !isNaN(recordDate.getTime()) &&
+          recordDate >= last24Hours &&
+          recordDate <= now
+        );
       });
     }
 
@@ -78,7 +98,11 @@ function App() {
       return historyData.filter((item) => {
         const recordDate = new Date(item.createdAt);
 
-        return recordDate >= last7Days && recordDate <= now;
+        return (
+          !isNaN(recordDate.getTime()) &&
+          recordDate >= last7Days &&
+          recordDate <= now
+        );
       });
     }
 
@@ -88,29 +112,71 @@ function App() {
   const filteredHistoryData = getFilteredHistoryData();
 
   // Chart data
-  const productionData = filteredHistoryData.map((item) => ({
-    time: new Date(item.createdAt).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    hydrogen: item.hydrogenProduction,
-  }));
-
+  const productionData = filteredHistoryData
+    .filter(
+      (item) =>
+        item.createdAt &&
+        item.hydrogenProduction !== null &&
+        item.hydrogenProduction !== undefined &&
+        Number.isFinite(Number(item.hydrogenProduction))
+    )
+    .map((item) => ({
+      time: new Date(item.createdAt).toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      hydrogen: Number(item.hydrogenProduction),
+    }));
+  
   const powerData = filteredHistoryData.map((item) => ({
-    time: new Date(item.createdAt).toLocaleTimeString([], {
+    time: new Date(item.createdAt).toLocaleString([], {
+      month: "short",
+      day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     }),
-    power: item.powerConsumption,
+    power: Number(item.powerConsumption),
   }));
 
   const waterData = filteredHistoryData.map((item) => ({
-    time: new Date(item.createdAt).toLocaleTimeString([], {
+    time: new Date(item.createdAt).toLocaleString([], {
+      month: "short",
+      day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     }),
-    water: item.waterUsage,
+    water: Number(item.waterUsage),
   }));
+
+  const efficiencyData = filteredHistoryData.map((item) => ({
+    time: new Date(item.createdAt).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    efficiency: Number(item.systemEfficiency),
+  }));
+
+  console.log("HISTORY DATA:", historyData);
+  console.log("HISTORY DATA COUNT:", historyData?.length);
+
+  console.log("Selected Period:", period);
+  console.log("Filtered History Count:", filteredHistoryData.length);
+  console.log("Hydrogen Chart Data:", productionData);
+  console.log("Efficiency Chart Data:", efficiencyData);
+
+    console.log("FILTERED HISTORY:", filteredHistoryData);
+    console.log("PRODUCTION DATA:", productionData);
+    console.log("POWER DATA:", powerData);
+    console.log("WATER DATA:", waterData);
+
+  console.log("First Hydrogen Data:", productionData[0]);
+  console.log("First Efficiency Data:", efficiencyData[0]);
+  console.log("Hydrogen Values:", productionData.map((item) => item.hydrogen));
+  console.log("Efficiency Values:", efficiencyData.map((item) => item.efficiency));
 
   // Fetch latest plant data
   const fetchPlantData = async (selectedPeriod = period) => {
@@ -136,6 +202,25 @@ function App() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch alerts data
+  const fetchAlerts = async () => {
+    try {
+      setAlertsLoading(true);
+
+      const response = await axios.get(
+        "http://localhost:5000/api/alerts"
+      );
+
+      console.log("Alerts Data:", response.data);
+
+      setAlerts(response.data.alerts || []);
+    } catch (error) {
+      console.error("Alerts Data Error:", error);
+    } finally {
+      setAlertsLoading(false);
     }
   };
 
@@ -166,6 +251,7 @@ function App() {
     fetchPlantData();
     fetchHistoryData();
     checkBackendStatus();
+    fetchAlerts();
 
     const refreshInterval = setInterval(() => {
       fetchPlantData();
@@ -322,10 +408,86 @@ function App() {
     }
   };
 
+  if (currentPage === "electrolyzers") {
+    return (
+      <Electrolyzers
+        onBack={() => setCurrentPage("dashboard")}
+      />
+    );
+  }
+  
+  if (currentPage === "analytics") {
+    return <Analytics onBack={() => setCurrentPage("dashboard")} />;
+  }
+
+  if (currentPage === "plantData") {
+    return <PlantData onBack={() => setCurrentPage("dashboard")} />;
+  }
+
+  if (currentPage === "reports") {
+    return <Reports onBack={() => setCurrentPage("dashboard")} />;
+  }
+
   return (
     <div className="app">
       {/* Header */}
       <header className="header">
+
+        <nav className="main-navigation">
+          <button
+            className={currentPage === "dashboard" ? "nav-button active" : "nav-button"}
+            onClick={() => setCurrentPage("dashboard")}
+          >
+            Dashboard
+          </button>
+
+          <button
+            className={
+              currentPage === "electrolyzers"
+                ? "nav-button active"
+                : "nav-button"
+            }
+            onClick={() => setCurrentPage("electrolyzers")}
+          >
+            Electrolyzers
+          </button>
+
+          <button
+            className={
+              currentPage === "analytics"
+                ? "nav-button active"
+                : "nav-button"
+            }
+            onClick={() => setCurrentPage("analytics")}
+          >
+            Analytics
+          </button>
+
+            <button
+              className={
+                currentPage === "plantData"
+                  ? "nav-button active"
+                  : "nav-button"
+              }
+              onClick={() => setCurrentPage("plantData")}
+            >
+              Plant Data
+            </button>
+
+
+            <button
+              className={
+                currentPage === "reports"
+                  ? "nav-button active"
+                  : "nav-button"
+              }
+              onClick={() => setCurrentPage("reports")}
+            >
+              Reports
+            </button>
+
+        </nav>
+
         <div>
           <h1>Hydrogen Monitoring System</h1>
           <p>Production Plant Monitoring Dashboard</p>
@@ -383,7 +545,17 @@ function App() {
             <div className="overview-item">
               <span>Plant Status</span>
 
-              <strong className="online-text">
+              <strong
+                className={`plant-status ${
+                  plantData?.plantStatus === "Operational"
+                    ? "plant-operational"
+                    : plantData?.plantStatus === "Warning"
+                    ? "plant-warning"
+                    : plantData?.plantStatus === "Shutdown"
+                    ? "plant-shutdown"
+                    : ""
+                }`}
+              >
                 {loading
                   ? "Loading..."
                   : plantData?.plantStatus ?? "Unknown"}
@@ -766,12 +938,11 @@ function App() {
             )}
           </form>
         </section>
-
         {/* ====================================================== */}
         {/* SUMMARY CARDS */}
         {/* ====================================================== */}
 
-        <div className="card">
+        <div className="card kpi-card">
           <h3>Hydrogen Output</h3>
 
           <div className="value">
@@ -780,10 +951,31 @@ function App() {
               : `${plantData?.hydrogenProduction ?? 0} kg/day`}
           </div>
 
-          <p>Current production</p>
+          <p>
+            Target:{" "}
+            {loading
+              ? "..."
+              : `${plantData?.productionTarget ?? 0} kg/day`}
+          </p>
+
+          {!loading && plantData && (
+            <div className="kpi-progress">
+              <div
+                className="kpi-progress-fill"
+                style={{
+                  width: `${Math.min(
+                    ((plantData.hydrogenProduction ?? 0) /
+                      (plantData.productionTarget || 1)) *
+                      100,
+                    100
+                  )}%`,
+                }}
+              ></div>
+            </div>
+          )}
         </div>
 
-        <div className="card">
+        <div className="card kpi-card">
           <h3>Power Consumption</h3>
 
           <div className="value">
@@ -792,10 +984,10 @@ function App() {
               : `${plantData?.powerConsumption ?? 0} kW`}
           </div>
 
-          <p>Current usage</p>
+          <p>Current plant electrical usage</p>
         </div>
 
-        <div className="card">
+        <div className="card kpi-card">
           <h3>Water Usage</h3>
 
           <div className="value">
@@ -804,10 +996,10 @@ function App() {
               : `${plantData?.waterUsage ?? 0} L/day`}
           </div>
 
-          <p>Current consumption</p>
+          <p>Current plant water consumption</p>
         </div>
 
-        <div className="card">
+        <div className="card kpi-card">
           <h3>System Efficiency</h3>
 
           <div className="value">
@@ -816,7 +1008,21 @@ function App() {
               : `${plantData?.systemEfficiency ?? 0}%`}
           </div>
 
-          <p>Overall efficiency</p>
+          <p>Overall system efficiency</p>
+
+          {!loading && plantData && (
+            <div className="kpi-progress">
+              <div
+                className="kpi-progress-fill"
+                style={{
+                  width: `${Math.min(
+                    plantData.systemEfficiency ?? 0,
+                    100
+                  )}%`,
+                }}
+              ></div>
+            </div>
+          )}
         </div>
 
         {/* ====================================================== */}
@@ -837,7 +1043,14 @@ function App() {
             </span>
           </div>
 
-          <div className="chart-container">
+          <div
+            className="chart-container"
+            style={{
+              width: "100%",
+              height: "320px",
+              minWidth: 0,
+            }}
+          >
             {historyLoading ? (
               <p>Loading historical data...</p>
             ) : productionData.length === 0 ? (
@@ -845,24 +1058,36 @@ function App() {
                 No production data available for this period.
               </p>
             ) : (
-              <ResponsiveContainer
-                width="100%"
-                height="100%"
-              >
-                {productionData.length > 0 ? (
-                <LineChart data={productionData}>
+
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart
+                  data={productionData}
+                  margin={{
+                    top: 20,
+                    right: 30,
+                    left: 20,
+                    bottom: 30,
+                  }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
 
                   <XAxis
                     dataKey="time"
+                    tick={{ fontSize: 11 }}
+                    angle={-25}
+                    textAnchor="end"
+                    height={60}
+                    interval="preserveStartEnd"
                     label={{
                       value: "Time",
                       position: "insideBottom",
-                      offset: -5,
+                      offset: -15,
                     }}
                   />
 
                   <YAxis
+                    type="number"
+                    domain={["auto", "auto"]}
                     label={{
                       value: "Hydrogen Production (kg/day)",
                       angle: -90,
@@ -870,32 +1095,27 @@ function App() {
                     }}
                   />
 
-                  <Tooltip />
+                  <Tooltip
+                    formatter={(value) => [
+                      `${value} kg/day`,
+                      "Hydrogen Production",
+                    ]}
+                    labelFormatter={(label) => `Time: ${label}`}
+                  />
 
                   <Line
                     type="monotone"
                     dataKey="hydrogen"
+                    name="Hydrogen Production"
                     stroke="#2563eb"
                     strokeWidth={3}
-                    dot={{ r: 4 }}
+                    dot={{ r: 3 }}
                     activeDot={{ r: 6 }}
+                    connectNulls
                   />
                 </LineChart>
-              ) : (
-                <div
-                  style={{
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#64748b",
-                    fontSize: "14px",
-                  }}
-                >
-                  No production data available for this period.
-                </div>
-              )}
               </ResponsiveContainer>
+               
             )}
           </div>
         </section>
@@ -918,7 +1138,13 @@ function App() {
               </p>
             </div>
 
-            <span className="active">
+            <span
+              className={
+                plantData?.electrolyzer01Status === "Active"
+                  ? "active"
+                  : "inactive"
+              }
+            >
               {loading
                 ? "Loading..."
                 : plantData?.electrolyzer01Status ??
@@ -937,7 +1163,13 @@ function App() {
               </p>
             </div>
 
-            <span className="active">
+            <span
+              className={
+                plantData?.electrolyzer02Status === "Active"
+                  ? "active"
+                  : "inactive"
+              }
+            >
               {loading
                 ? "Loading..."
                 : plantData?.electrolyzer02Status ??
@@ -956,7 +1188,13 @@ function App() {
               </p>
             </div>
 
-            <span className="active">
+            <span
+              className={
+                plantData?.electrolyzer03Status === "Active"
+                  ? "active"
+                  : "inactive"
+              }
+            >
               {loading
                 ? "Loading..."
                 : plantData?.electrolyzer03Status ??
@@ -993,7 +1231,14 @@ function App() {
             </div>
           </div>
 
-          <div className="chart-container">
+          <div
+            className="chart-container"
+            style={{
+              width: "100%",
+              height: "320px",
+              minWidth: 0,
+            }}
+          >
             {historyLoading ? (
               <p>Loading historical data...</p>
             ) : powerData.length === 0 ? (
@@ -1001,12 +1246,17 @@ function App() {
                 No power data available for this period.
               </p>
             ) : (
-              <ResponsiveContainer
-                width="100%"
-                height="100%"
+              <LineChart
+                width={800}
+                height={320}
+                data={powerData}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 30,
+                }}
               >
-                {powerData.length > 0 ? (
-              <LineChart data={powerData}>
                 <CartesianGrid strokeDasharray="3 3" />
 
                 <XAxis
@@ -1014,7 +1264,7 @@ function App() {
                   label={{
                     value: "Time",
                     position: "insideBottom",
-                    offset: -5,
+                    offset: -15,
                   }}
                 />
 
@@ -1026,7 +1276,15 @@ function App() {
                   }}
                 />
 
-                <Tooltip />
+                <Tooltip
+                  labelFormatter={(label) =>
+                    `Time: ${String(label)}`
+                  }
+                  formatter={(value) => [
+                    `${value} kW`,
+                    "Power Consumption",
+                  ]}
+                />
 
                 <Line
                   type="monotone"
@@ -1037,21 +1295,6 @@ function App() {
                   activeDot={{ r: 6 }}
                 />
               </LineChart>
-            ) : (
-              <div
-                style={{
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#64748b",
-                  fontSize: "14px",
-                }}
-              >
-                No power consumption data available for this period.
-              </div>
-            )}
-              </ResponsiveContainer>
             )}
           </div>
         </section>
@@ -1072,7 +1315,14 @@ function App() {
             </span>
           </div>
 
-          <div className="chart-container">
+          <div
+            className="chart-container"
+            style={{
+              width: "100%",
+              height: "320px",
+              minWidth: 0,
+            }}
+          >
             {historyLoading ? (
               <p>Loading historical data...</p>
             ) : waterData.length === 0 ? (
@@ -1080,55 +1330,55 @@ function App() {
                 No water data available for this period.
               </p>
             ) : (
-              <ResponsiveContainer
-                width="100%"
-                height="100%"
+              <LineChart
+                width={800}
+                height={320}
+                data={waterData}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 30,
+                }}
               >
-                {waterData.length > 0 ? (
-                  <LineChart data={waterData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid strokeDasharray="3 3" />
 
-                    <XAxis
-                      dataKey="time"
-                      label={{
-                        value: "Time",
-                        position: "insideBottom",
-                        offset: -5,
-                      }}
-                    />
+                <XAxis
+                  dataKey="time"
+                  label={{
+                    value: "Time",
+                    position: "insideBottom",
+                    offset: -15,
+                  }}
+                />
 
-                    <YAxis
-                      label={{
-                        value: "Water Usage (L/day)",
-                        angle: -90,
-                        position: "insideLeft",
-                      }}
-                    />
+                <YAxis
+                  label={{
+                    value: "Water Usage (L/day)",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
 
-                    <Line
-                      type="monotone"
-                      dataKey="water"
-                      stroke="#0891b2"
-                      strokeWidth={3}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                ) : (
-                  <div
-                    style={{
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#64748b",
-                      fontSize: "14px",
-                    }}
-                  >
-                    No water usage data available for this period.
-                  </div>
-                )}
-              </ResponsiveContainer>
+                <Tooltip
+                  labelFormatter={(label) =>
+                    `Time: ${String(label)}`
+                  }
+                  formatter={(value) => [
+                    `${value} L/day`,
+                    "Water Usage",
+                  ]}
+                />
+
+                <Line
+                  type="monotone"
+                  dataKey="water"
+                  stroke="#0891b2"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
             )}
           </div>
         </section>
@@ -1261,57 +1511,80 @@ function App() {
         {/* ====================================================== */}
 
         <section className="panel alerts-panel">
-          <h2>Plant Alerts</h2>
-
-          {/* Electrolyzer 03 Alert */}
-          <div className="alert warning">
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "16px",
+            }}
+          >
             <div>
-              <strong>Electrolyzer 03</strong>
+              <h2>Plant Alerts</h2>
 
-              <p>
-                {loading
-                  ? "Checking unit status..."
-                  : plantData?.electrolyzer03Status === "Maintenance"
-                  ? "Unit currently under maintenance"
-                  : plantData?.electrolyzer03Status === "Active"
-                  ? "Unit is operating normally"
-                  : "Unit is currently inactive"}
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  color: "#64748b",
+                  fontSize: "13px",
+                }}
+              >
+                Current plant and electrolyzer alerts
               </p>
             </div>
 
-            <span>
-              {loading
-                ? "Checking..."
-                : plantData?.electrolyzer03Status ?? "Unknown"}
+            <span
+              style={{
+                padding: "6px 12px",
+                borderRadius: "20px",
+                background:
+                  alerts.length > 0 ? "#fee2e2" : "#dcfce7",
+                color:
+                  alerts.length > 0 ? "#b91c1c" : "#166534",
+                fontSize: "13px",
+                fontWeight: "600",
+              }}
+            >
+              {alerts.length} Active
             </span>
           </div>
 
-          {/* Overall Plant Alert */}
-          <div className="alert normal">
-            <div>
-              <strong>System Status</strong>
+          {alertsLoading ? (
+            <p>Loading alerts...</p>
+          ) : alerts.length === 0 ? (
+            <div className="alert normal">
+              <div>
+                <strong>No Active Alerts</strong>
 
-              <p>
-                {loading
-                  ? "Checking plant status..."
-                  : plantData?.plantStatus === "Operational"
-                  ? "Plant is operating normally"
-                  : plantData?.plantStatus === "Warning"
-                  ? "Plant requires attention"
-                  : plantData?.plantStatus === "Shutdown"
-                  ? "Plant is currently shut down"
-                  : "Plant status unavailable"}
-              </p>
+                <p>
+                  Plant operations are currently normal.
+                </p>
+              </div>
             </div>
+          ) : (
+            alerts.map((alert, index) => (
+              <div
+                key={index}
+                className={`alert ${
+                  alert.type === "critical"
+                    ? "critical"
+                    : "warning"
+                }`}
+              >
+                <div> 
+                  <strong>
+                    {alert.type === "critical" ? "🔴" : "⚠️"}{" "}
+                    {alert.title}
+                  </strong>
 
-            <span>
-              {loading
-                ? "Checking..."
-                : plantData?.plantStatus ?? "Unknown"}
-            </span>
-          </div>
+                  <p>{alert.message}</p>
+                </div>
+
+                <span>{alert.category}</span>
+              </div>
+            ))
+          )}
         </section>
-
 
       </main>
     </div>
