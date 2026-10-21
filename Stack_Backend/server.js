@@ -18,9 +18,13 @@ const app = express();
 connectDB();
 
 // Middleware
+const allowedOrigin = (process.env.FRONTEND_URL || "")
+  .trim()
+  .replace(/\/+$/, "");
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: allowedOrigin,
     credentials: true,
   })
 );
