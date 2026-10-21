@@ -18,13 +18,27 @@ const app = express();
 connectDB();
 
 // Middleware
-const allowedOrigin = (process.env.FRONTEND_URL || "")
-  .trim()
-  .replace(/\/+$/, "");
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://hydrogen-monitoring-frontend.onrender.com",
+  ...(process.env.FRONTEND_URL || "")
+    .split(",")
+    .map((url) => url.trim().replace(/\/+$/, ""))
+    .filter(Boolean),
+];
 
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: function (origin, callback) {
+      // Allow requests without an Origin header and approved frontends
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("CORS blocked origin:", origin);
+      return callback(new Error("Origin not allowed by CORS"));
+    },
     credentials: true,
   })
 );
