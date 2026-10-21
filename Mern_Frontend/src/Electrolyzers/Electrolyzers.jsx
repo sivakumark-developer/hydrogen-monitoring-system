@@ -96,7 +96,7 @@ function Electrolyzers({ onBack }) {
       }
 
       await api.post(
-        "http://localhost:5000/api/electrolyzers/add",
+        "/api/electrolyzers/add",
         {
           unitId: readingData.unitId,
           unitName: selectedUnit.unitName,

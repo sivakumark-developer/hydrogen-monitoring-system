@@ -14,7 +14,7 @@ import {
   ReferenceLine,
 } from "recharts";
 
-const API_URL = "http://localhost:5000/api/plant";
+const API_URL = "https://hydrogen-monitoring-system.onrender.com/api/plant";
 
 const PERIODS = {
   TODAY: "Today",
