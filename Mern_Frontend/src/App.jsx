@@ -1,5 +1,5 @@
 import React from "react";
-import axios from "axios";
+import api from "./api/axiosConfig";
 import { useEffect, useState } from "react";
 import {
   LineChart,
@@ -15,9 +15,29 @@ import Electrolyzers from "./Electrolyzers/Electrolyzers";
 import Analytics from "./Analytics/Analytics";
 import PlantData from "./PlantData/PlantData";
 import Reports from "./Reports/Reports";
+import Login from "./Auth/Login";
+import Signup from "./Auth/Signup";
+import { getCurrentUser, logoutUser } from "./api/auth";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authPage, setAuthPage] = useState("login");
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await getCurrentUser();
+        setAuthUser(response.user);
+      } catch (error) {
+        setAuthUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkSession();
+  }, []);
   const [period, setPeriod] = useState("All Records");
   const [lastUpdated, setLastUpdated] = useState(
     new Date().toLocaleTimeString()
@@ -184,10 +204,8 @@ function App() {
       setLoading(true);
       setError("");
 
-      const response = await axios.get(
-        `http://localhost:5000/api/plant?period=${encodeURIComponent(
-          selectedPeriod
-        )}`
+      const response = await api.get(
+        `/api/plant?period=${encodeURIComponent(selectedPeriod)}`
       );
 
       console.log("Plant Data:", response.data);
@@ -210,9 +228,7 @@ function App() {
     try {
       setAlertsLoading(true);
 
-      const response = await axios.get(
-        "http://localhost:5000/api/alerts"
-      );
+      const response = await api.get("/api/alerts");
 
       console.log("Alerts Data:", response.data);
 
@@ -229,9 +245,7 @@ function App() {
     try {
       setHistoryLoading(true);
 
-      const response = await axios.get(
-        "http://localhost:5000/api/plant/history"
-      );
+      const response = await api.get("/api/plant/history");
 
       console.log("History Data:", response.data);
 
@@ -248,6 +262,11 @@ function App() {
   };
 
   useEffect(() => {
+    // Do not request protected dashboard data until a user is authenticated.
+    if (!authUser) {
+      return undefined;
+    }
+
     fetchPlantData();
     fetchHistoryData();
     checkBackendStatus();
@@ -257,11 +276,12 @@ function App() {
       fetchPlantData();
       fetchHistoryData();
       checkBackendStatus();
+      fetchAlerts();
       setLastUpdated("Just now");
     }, 30000);
 
     return () => clearInterval(refreshInterval);
-  }, []);
+  }, [authUser]);
   // Refresh dashboard
   const handleRefresh = async () => {
     try {
@@ -280,13 +300,54 @@ function App() {
   // Test backend connection
   const checkBackendStatus = async () => {
     try {
-      await axios.get("http://localhost:5000/");
+      await api.get("/");
 
       setBackendStatus(true);
     } catch (error) {
       setBackendStatus(false);
     }
   };
+
+  // Log out and return to the login screen.
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout Error:", error);
+    } finally {
+      setAuthUser(null);
+      setAuthPage("login");
+      setCurrentPage("dashboard");
+    }
+  };
+
+  // Authentication screens must be rendered only after all hooks above
+  // have been called, so the order of hooks remains consistent.
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+        <p className="text-lg">Checking your session...</p>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    if (authPage === "signup") {
+      return (
+        <Signup
+          onSignup={(user) => setAuthUser(user)}
+          onSwitchToLogin={() => setAuthPage("login")}
+        />
+      );
+    }
+
+    return (
+      <Login
+        onLogin={(user) => setAuthUser(user)}
+        onSwitchToSignup={() => setAuthPage("signup")}
+      />
+    );
+  }
 
   // Handle form input
   const handleFormChange = (e) => {
@@ -365,9 +426,10 @@ function App() {
         plantStatus: formData.plantStatus,
       };
 
-      const response = await axios.post(
+      const response = await api.post(
         "http://localhost:5000/api/plant/add",
-        payload
+        payload,
+        { withCredentials: true }
       );
 
       console.log("New Plant Data:", response.data);
@@ -494,6 +556,15 @@ function App() {
         </div>
 
         <div className="header-right">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+            <span>
+              Signed in{authUser?.name ? ` as ${authUser.name}` : authUser?.email ? ` as ${authUser.email}` : ""}
+            </span>
+            <button type="button" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+
           <div className="status">
             <span
               className="status-dot"
@@ -533,6 +604,7 @@ function App() {
                 <option>Today</option>
                 <option>Last 24 Hours</option>
                 <option>Last 7 Days</option>
+                <option>All Records</option>
               </select>
 
               <button onClick={handleRefresh} disabled={refreshing}>
@@ -1033,14 +1105,10 @@ function App() {
           <div className="panel-header">
             <div>
               <h2>Hydrogen Production</h2>
-              <p>
-                Production rate throughout the selected period
-              </p>
+              <p>Production rate throughout the selected period</p>
             </div>
 
-            <span className="unit-label">
-              kg/day
-            </span>
+            <span className="unit-label">kg/day</span>
           </div>
 
           <div
@@ -1049,76 +1117,74 @@ function App() {
               width: "100%",
               height: "320px",
               minWidth: 0,
+              overflow: "visible",
             }}
           >
             {historyLoading ? (
               <p>Loading historical data...</p>
             ) : productionData.length === 0 ? (
-              <p>
-                No production data available for this period.
-              </p>
+              <p>No production data available for this period.</p>
             ) : (
+              <LineChart
+                width={1100}
+                height={320}
+                data={productionData}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 30,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
 
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart
-                  data={productionData}
-                  margin={{
-                    top: 20,
-                    right: 30,
-                    left: 20,
-                    bottom: 30,
+                <XAxis
+                  dataKey="time"
+                  tick={{ fontSize: 11 }}
+                  angle={-25}
+                  textAnchor="end"
+                  height={60}
+                  interval="preserveStartEnd"
+                  label={{
+                    value: "Time",
+                    position: "insideBottom",
+                    offset: -15,
                   }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
+                />
 
-                  <XAxis
-                    dataKey="time"
-                    tick={{ fontSize: 11 }}
-                    angle={-25}
-                    textAnchor="end"
-                    height={60}
-                    interval="preserveStartEnd"
-                    label={{
-                      value: "Time",
-                      position: "insideBottom",
-                      offset: -15,
-                    }}
-                  />
+                <YAxis
+                  type="number"
+                  domain={["auto", "auto"]}
+                  label={{
+                    value: "Hydrogen Production (kg/day)",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
 
-                  <YAxis
-                    type="number"
-                    domain={["auto", "auto"]}
-                    label={{
-                      value: "Hydrogen Production (kg/day)",
-                      angle: -90,
-                      position: "insideLeft",
-                    }}
-                  />
+                <Tooltip
+                  formatter={(value) => [
+                    `${value} kg/day`,
+                    "Hydrogen Production",
+                  ]}
+                  labelFormatter={(label) => `Time: ${label}`}
+                />
 
-                  <Tooltip
-                    formatter={(value) => [
-                      `${value} kg/day`,
-                      "Hydrogen Production",
-                    ]}
-                    labelFormatter={(label) => `Time: ${label}`}
-                  />
-
-                  <Line
-                    type="monotone"
-                    dataKey="hydrogen"
-                    name="Hydrogen Production"
-                    stroke="#2563eb"
-                    strokeWidth={3}
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 6 }}
-                    connectNulls
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-               
+                <Line
+                  type="monotone"
+                  dataKey="hydrogen"
+                  name="Hydrogen Production"
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 6 }}
+                  connectNulls
+                />
+              </LineChart>
             )}
           </div>
         </section>
+
 
         {/* ====================================================== */}
         {/* ELECTROLYZER STATUS */}

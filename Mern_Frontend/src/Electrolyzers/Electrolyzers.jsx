@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api/axiosConfig";
 import {
   LineChart,
   Line,
@@ -42,9 +42,7 @@ function Electrolyzers({ onBack }) {
       setLoading(true);
       setError("");
 
-      const response = await axios.get(
-        "http://localhost:5000/api/electrolyzers"
-      );
+      const response = await api.get("/api/electrolyzers");
 
       console.log("Electrolyzer Data:", response.data);
 
@@ -66,9 +64,7 @@ function Electrolyzers({ onBack }) {
     try {
       setHistoryLoading(true);
 
-      const response = await axios.get(
-        "http://localhost:5000/api/electrolyzers/history"
-      );
+      const response = await api.get("/api/electrolyzers/history");
 
       console.log("Electrolyzer History:", response.data);
 
@@ -99,7 +95,7 @@ function Electrolyzers({ onBack }) {
         return;
       }
 
-      await axios.post(
+      await api.post(
         "http://localhost:5000/api/electrolyzers/add",
         {
           unitId: readingData.unitId,

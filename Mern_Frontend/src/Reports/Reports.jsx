@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../api/axiosConfig";
 import { jsPDF } from "jspdf";
+
 
 import {
   LineChart,
@@ -246,8 +247,7 @@ const Reports = ({ onBack }) => {
     try {
       setLoading(true);
       setError("");
-
-      const response = await axios.get(`${API_URL}/history`);
+      const response = await api.get("/api/plant/history");
 
       if (!Array.isArray(response.data)) {
         throw new Error("The history API did not return an array.");

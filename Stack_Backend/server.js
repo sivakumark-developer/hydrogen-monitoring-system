@@ -1,36 +1,56 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
+
 const plantRoutes = require("./routes/plantRoutes");
 const electrolyzerRoutes = require("./routes/electrolyzerRoutes");
 const alertsRoutes = require("./routes/alertsRoutes");
+const authRoutes = require("./routes/authRoutes");
+
+const { protect } = require("./middleware/authMiddleware");
 
 const app = express();
 
+// Connect to MongoDB
 connectDB();
 
-app.use(cors());
-app.use(express.json());
+// Middleware
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  })
+);
 
+app.use(express.json());
+app.use(cookieParser());
+
+// Safe request logging — never log passwords or request bodies
 app.use((req, res, next) => {
   console.log("Request Method:", req.method);
   console.log("Request URL:", req.originalUrl);
-  console.log("Request Body:", req.body);
   next();
 });
 
+// Backend health check
 app.get("/", (req, res) => {
   res.json({
     message: "Hydrogen Monitoring System Backend is running!",
   });
 });
 
-app.use("/api/plant", plantRoutes);
-app.use("/api/electrolyzers", electrolyzerRoutes);
-app.use("/api/alerts", alertsRoutes);
+// Public authentication routes
+app.use("/api/auth", authRoutes);
 
+// Protected application APIs
+app.use("/api/plant", protect, plantRoutes);
+app.use("/api/electrolyzers", protect, electrolyzerRoutes);
+app.use("/api/alerts", protect, alertsRoutes);
+
+// Temporary test routes
 app.get("/api/alerts-test", (req, res) => {
   res.json({
     message: "Alerts API route is working",
@@ -43,13 +63,13 @@ app.get("/api/electrolyzers-test", (req, res) => {
   });
 });
 
-// TEMPORARY TEST ROUTE
 app.get("/api/test-history", (req, res) => {
   res.json({
     message: "History route is working",
   });
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {

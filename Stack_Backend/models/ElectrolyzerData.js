@@ -44,7 +44,8 @@ const electrolyzerDataSchema = new mongoose.Schema(
 
 const ElectrolyzerData = mongoose.model(
   "ElectrolyzerData",
-  electrolyzerDataSchema
+  electrolyzerDataSchema,
+  "electrolyzerdatas"
 );
 
 module.exports = ElectrolyzerData;

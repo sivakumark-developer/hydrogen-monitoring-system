@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api/axiosConfig";
 
 const StatusBadge = ({ status }) => {
   const normalizedStatus = status?.toLowerCase();
@@ -56,9 +56,7 @@ const PlantData = ({ onBack }) => {
       setLoading(true);
       setError("");
 
-      const response = await axios.get(
-        "http://localhost:5000/api/plant/history"
-      );
+      const response = await api.get("/api/plant/history");
 
       console.log("Plant History:", response.data);
 

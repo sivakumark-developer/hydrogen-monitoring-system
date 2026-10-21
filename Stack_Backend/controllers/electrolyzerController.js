@@ -40,6 +40,10 @@ const addElectrolyzerData = async (req, res) => {
 // Get latest electrolyzer data for each unit
 const getElectrolyzerData = async (req, res) => {
   try {
+    console.log("Database:", ElectrolyzerData.db.name);
+    console.log("Host:", ElectrolyzerData.db.host);
+    console.log("Collection:", ElectrolyzerData.collection.name);
+    console.log("Documents:", await ElectrolyzerData.countDocuments());
     const unitIds = await ElectrolyzerData.distinct("unitId");
 
     const latestData = await Promise.all(
