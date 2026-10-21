@@ -1,0 +1,169 @@
+.profile-page {
+min-height: 100vh;
+padding: 32px;
+background: #f1f5f9;
+color: #1e293b;
+font-family: Inter, Arial, sans-serif;
+box-sizing: border-box;
+}
+
+.profile-page * {
+box-sizing: border-box;
+}
+
+.profile-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 16px;
+margin-bottom: 28px;
+}
+
+.profile-header h1 {
+margin: 0 0 8px;
+font-size: 28px;
+font-weight: 700;
+}
+
+.profile-header p {
+margin: 0;
+color: #64748b;
+font-size: 14px;
+}
+
+.profile-back-button,
+.profile-details-button {
+border: none;
+border-radius: 8px;
+padding: 11px 16px;
+background: #2563eb;
+color: #ffffff;
+font-size: 14px;
+font-weight: 600;
+cursor: pointer;
+transition: background 0.2s ease;
+}
+
+.profile-back-button:hover,
+.profile-details-button:hover {
+background: #1d4ed8;
+}
+
+.profile-card {
+width: 100%;
+max-width: 650px;
+margin: 0 auto;
+padding: 32px;
+background: #ffffff;
+border: 1px solid #e2e8f0;
+border-radius: 16px;
+box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.profile-avatar {
+display: flex;
+align-items: center;
+justify-content: center;
+width: 88px;
+height: 88px;
+margin: 0 auto 16px;
+border-radius: 50%;
+background: #dbeafe;
+color: #1d4ed8;
+font-size: 36px;
+font-weight: 700;
+}
+
+.profile-card h2 {
+margin: 0;
+text-align: center;
+font-size: 23px;
+font-weight: 700;
+overflow-wrap: anywhere;
+}
+
+.profile-role {
+margin: 8px 0 24px;
+color: #64748b;
+text-align: center;
+font-size: 14px;
+}
+
+.profile-divider {
+height: 1px;
+margin-bottom: 24px;
+background: #e2e8f0;
+}
+
+.profile-info {
+display: flex;
+flex-direction: column;
+gap: 20px;
+}
+
+.profile-info-item,
+.profile-account-details {
+display: flex;
+flex-direction: column;
+gap: 7px;
+min-width: 0;
+}
+
+.profile-label {
+color: #64748b;
+font-size: 13px;
+font-weight: 600;
+}
+
+.profile-value {
+color: #1e293b;
+font-size: 15px;
+overflow-wrap: anywhere;
+}
+
+.profile-status {
+color: #15803d;
+font-size: 14px;
+font-weight: 600;
+}
+
+.profile-details-button {
+width: 100%;
+margin-top: 26px;
+}
+
+.profile-account-details {
+margin-top: 20px;
+padding: 16px;
+border: 1px solid #e2e8f0;
+border-radius: 8px;
+background: #f8fafc;
+}
+
+.profile-id {
+font-family: monospace;
+font-size: 13px;
+}
+
+@media (max-width: 600px) {
+.profile-page {
+padding: 20px 14px;
+}
+
+.profile-header {
+align-items: flex-start;
+flex-direction: column;
+}
+
+.profile-header h1 {
+font-size: 24px;
+}
+
+.profile-back-button {
+width: 100%;
+}
+
+.profile-card {
+padding: 24px 18px;
+}
+}

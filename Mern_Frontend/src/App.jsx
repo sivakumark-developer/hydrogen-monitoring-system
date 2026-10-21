@@ -15,6 +15,7 @@ import Electrolyzers from "./Electrolyzers/Electrolyzers";
 import Analytics from "./Analytics/Analytics";
 import PlantData from "./PlantData/PlantData";
 import Reports from "./Reports/Reports";
+import Profile from "./Profile/Profile";
 import Login from "./Auth/Login";
 import Signup from "./Auth/Signup";
 import { getCurrentUser, logoutUser } from "./api/auth";
@@ -490,6 +491,15 @@ function App() {
     return <Reports onBack={() => setCurrentPage("dashboard")} />;
   }
 
+  if (currentPage === "profile") {
+    return (
+      <Profile
+        user={authUser}
+        onBack={() => setCurrentPage("dashboard")}
+      />
+    );
+  }
+
   return (
     <div className="app">
       {/* Header */}
@@ -546,6 +556,17 @@ function App() {
               onClick={() => setCurrentPage("reports")}
             >
               Reports
+            </button>
+
+            <button
+              className={
+                currentPage === "profile"
+                  ? "nav-button active"
+                  : "nav-button"
+              }
+              onClick={() => setCurrentPage("profile")}
+            >
+              Profile
             </button>
 
         </nav>
